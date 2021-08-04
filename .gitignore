@@ -1,0 +1,10 @@
+*.log
+*.bat
+*.pyo
+*.pyc
+*.db
+cache.dat
+__pycache__/
+.env/
+debug/
+sounds/
