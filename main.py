@@ -8,10 +8,13 @@ Created on 04.08.2021
 """
 
 import os
-import time
 
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 import utils
 
@@ -28,15 +31,15 @@ class UkrNetMail:
         self.__url__ = 'https://accounts.ukr.net/login'
         self.__driver = webdriver.Chrome(os.getenv('CHROME_DRIVER_PATH'))
         self.__driver.get(self.__url__)
-        time.sleep(1)
-        if "@ ukr.net" in self.__driver.title:
+        self.__wait = WebDriverWait(self.__driver, 10)
+        if self.__wait.until(EC.title_contains("@ ukr.net")):
             self.status = True
 
     def login(self):
         """Send login and password to site for connect email."""
-        field = self.__driver.find_element_by_name("login")
+        field = self.__wait.until(EC.element_to_be_clickable((By.NAME, "login")))
         field.send_keys(os.getenv("UKRNET_LOGIN"))
-        field = self.__driver.find_element_by_name("password")
+        field = self.__wait.until(EC.element_to_be_clickable((By.NAME, "password")))
         field.send_keys(os.getenv("UKRNET_PASSWORD"))
         field.send_keys(Keys.RETURN)
 
@@ -46,48 +49,40 @@ class UkrNetMail:
 
     def create_email(self, to, subject, message):
         """Create and send email."""
-        self.__driver.find_element_by_xpath("//div[@id='content']/button").click()
-        time.sleep(1)
-        field = self.__driver.find_element_by_name("to")
+        self.__wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@id='content']/button"))).click()
+        field = self.__wait.until(EC.element_to_be_clickable((By.NAME, "to")))
         field.send_keys(to)
-        field = self.__driver.find_element_by_name("subject")
+        field = self.__wait.until(EC.element_to_be_clickable((By.NAME, "subject")))
         field.send_keys(subject)
-        field = self.__driver.find_element_by_name("editLinkBlock")
+        field = self.__wait.until(EC.element_to_be_clickable((By.NAME, "editLinkBlock")))
         field.send_keys(message)
-        self.__driver.find_element_by_class_name("button primary send").click()
+        field = self.__wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "button primary send"))).click()
 
     def get_emails(self):
         """Get all email lists."""
         emails = {}
-        for email in self.__driver.find_elements_by_xpath("//table/tbody/tr/td[@class='msglist__row-subject']"):
-            email_list = email.split('<strong> &nbsp;')
+        for row in self.__wait.until(EC.presence_of_all_elements_located((By.XPATH, "//table/tbody/tr/td[@class='msglist__row-subject']"))):
+            email_list = row.split('<strong> &nbsp;')
             emails[email_list[0]] = email_list[1]
         return emails
 
     def delete_emails(self):
         """Delete all email lists."""
-        emails = {}
-        for checkbox in self.__driver.find_elements_by_xpath("//table/tbody/tr/td/input[@type='checkbox']"):
+        for checkbox in self.__wait.until(EC.presence_of_all_elements_located((By.XPATH, "//table/tbody/tr/td/input[@type='checkbox']"))):
             checkbox.click()
-        self.__driver.find_element_by_class_name("controls-link remove").click()
+        self.__wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "controls-link remove"))).click()
 
 
 def main():
     client = UkrNetMail()
     if client.status:
         client.login()
-        time.sleep(3)
         email_to = ''.join([os.getenv("UKRNET_LOGIN"), '@ukr.net'])
         for _ in range(COUNT_EMAIL):
             client.create_email(email_to, utils.get_string(COUNT_SYMBOLS), utils.get_string(COUNT_SYMBOLS))
-            time.sleep(2)
-        time.sleep(2)
         emails = client.get_emails()
-        time.sleep(2)
         client.del_emails()
-        time.sleep(2)
         client.create_email(email_to, "Answer email", utils.create_email(emails))
-        time.sleep(2)
         client.close()
 
 
