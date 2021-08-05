@@ -13,7 +13,11 @@ import time
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 
-import gen
+import utils
+
+
+COUNT_EMAIL = 15
+COUNT_SYMBOLS = 10
 
 
 class UkrNetMail:
@@ -40,10 +44,32 @@ class UkrNetMail:
         """Close webdriver with shutdown script."""
         self.__driver.quit()
 
-    def create_email(self):
-        """Create email with random title and random body."""
+    def create_email(self, to, subject, message):
+        """Create and send email."""
         self.__driver.find_element_by_xpath("//div[@id='content']/button").click()
-        
+        time.sleep(1)
+        field = self.__driver.find_element_by_name("to")
+        field.send_keys(to)
+        field = self.__driver.find_element_by_name("subject")
+        field.send_keys(subject)
+        field = self.__driver.find_element_by_name("editLinkBlock")
+        field.send_keys(message)
+        self.__driver.find_element_by_class_name("button primary send").click()
+
+    def get_emails(self):
+        """Get all email lists."""
+        emails = {}
+        for email in self.__driver.find_elements_by_xpath("//table/tbody/tr/td[@class='msglist__row-subject']"):
+            email_list = email.split('<strong> &nbsp;')
+            emails[email_list[0]] = email_list[1]
+        return emails
+
+    def delete_emails(self):
+        """Delete all email lists."""
+        emails = {}
+        for checkbox in self.__driver.find_elements_by_xpath("//table/tbody/tr/td/input[@type='checkbox']"):
+            checkbox.click()
+        self.__driver.find_element_by_class_name("controls-link remove").click()
 
 
 def main():
@@ -51,9 +77,17 @@ def main():
     if client.status:
         client.login()
         time.sleep(3)
-        for _ in range(15):
-            client.create_email()
+        email_to = ''.join([os.getenv("UKRNET_LOGIN"), '@ukr.net'])
+        for _ in range(COUNT_EMAIL):
+            client.create_email(email_to, utils.get_string(COUNT_SYMBOLS), utils.get_string(COUNT_SYMBOLS))
             time.sleep(2)
+        time.sleep(2)
+        emails = client.get_emails()
+        time.sleep(2)
+        client.del_emails()
+        time.sleep(2)
+        client.create_email(email_to, "Answer email", utils.create_email(emails))
+        time.sleep(2)
         client.close()
 
 
